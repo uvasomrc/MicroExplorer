@@ -164,25 +164,26 @@ server <- function(input, output) {
                     min = 1, max = 20, value = 10)
       ),
       radioButtons("sortMethod", label= h4("Sort Samples"),
-                   choices = c("Decreasing Taxa Abunance", "Cluster by Dissimilarity")),
+                   choices = c("Decreasing Taxa Abunance", "Cluster by Dissimilarity"),
+                   selected = "Cluster by Dissimilarity"),
       selectInput("facetField", h4("Facet By"),
-                  choices=c("None", base::colnames(filteredData()$sampleData)), selected = "None"),
-      actionButton("sbplot", "Plot")
+                  choices=c("None", base::colnames(filteredData()$sampleData)), selected = "None")
     )
   })
   
   # render stacked bar plot
-  stackedBarPlot <- eventReactive(input$sbplot, {
+  output$stackedbar <- renderPlotly({
     if (input$plotDataset == "Filtered") {
-      myStackedBarPlot(filteredData()$countData, filteredData()$taxaData, filteredData()$sampleData,
+      plotStackedBar(filteredData()$countData, filteredData()$taxaData, filteredData()$sampleData,
                        input$taxaLevel, input$taxa2Plot, input$numTaxa2Plot, 
-                       input$sortMethod, input$facetField) 
+                       input$sortMethod, input$facetField)
+    } else {
+      plotStackedBar(validData()$countData, validData()$taxaData, validData()$sampleData,
+                       input$taxaLevel, input$taxa2Plot, input$numTaxa2Plot, 
+                       input$sortMethod, input$facetField)  
     }
   })
-  output$stackedbar <- renderPlotly({
-    req(!is.null(stackedBarPlot()))
-    stackedBarPlot()
-  })
+  
   
 }
 

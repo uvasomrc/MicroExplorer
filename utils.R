@@ -144,49 +144,43 @@ sortSamplesByDissimilarity <- function(propData) {
 # sorts samples by decreasing taxa abundances  
 # returns sample order
 sortSamplesByDescTaxaAbund <- function(propData) {
-  ## identify topTaxa
-  maxTaxa <- apply(propData, 1, which.max)
-  maxProp <- propData[matrix(c(1:nrow(propData),maxTaxa), ncol=2)]
-  maxTaxa <- colnames(propData)[maxTaxa]
-  maxTaxaDF <- data.frame(cbind(rownames(propData), maxTaxa))
-  #maxTaxa.uniq <- unique(maxTaxaDF$maxTaxa)
-  tbl <- data.frame(table(maxTaxaDF$maxTaxa))
-  taxaOrder <- tbl[order(-tbl$Freq),]
-  taxaOrder <- as.character(taxaOrder$Var1)
-  taxaOrder <- c(taxaOrder[!(taxaOrder %in% c("OtherTaxa", "unclassified"))], "OtherTaxa", "unclassified") 
-  
-  # set default sampleOrder
-  sampleOrder <- vector(mode="character", length=0)
-  
-  for (x in taxaOrder) {
-    samples <- maxTaxaDF[maxTaxaDF$maxTaxa == x,]
-    if (length(samples$V1) > 1 ){
-      tmp <- propData[rownames(propData) %in% samples$V1,]
-      tmp.melt <- melt(tmp)
-      tmp.melt <- tmp.melt[order(-tmp.melt$value, tmp.melt$Var2, tmp.melt$Var1),]
-      tmp.melt$Var1 <- factor(tmp.melt$Var1, levels = unique(tmp.melt$Var1))
-      if ( x != "unclassified"){
-        sampleOrder <- c(sampleOrder, levels(tmp.melt$Var1))
-      } else {
-        sampleOrder <- c(sampleOrder, rev(levels(tmp.melt$Var1)))
-      }  
-    } else {
-      sampleOrder <- c(sampleOrder, as.character(samples$V1))
-    }
-  }
+
+  # identify top taxa for each sample
+  maxTaxa <- propData %>%
+    melt() %>%
+    set_colnames(c("Sample", "Taxa", "RelAb")) %>%
+    group_by(Sample) %>%
+    filter(RelAb == max(RelAb)) 
+  # identify most prevalent taxas
+  taxaPrevOrder <- maxTaxa %>% 
+    ungroup(Sample) %>%
+    count(Taxa) %>%
+    arrange(-n)
+  # arrange samples by taxaprev, followed by relab
+  sorder <- maxTaxa %>%
+    mutate(Taxa = factor(Taxa, levels = taxaPrevOrder$Taxa)) %>%
+    arrange(Taxa, desc(RelAb))
   
   ### return the custom sample order
-  return(sampleOrder)
+  return(sorder$Sample)
+
+}
+
+# +++++++++++++++++++++++
+# assignColor
+# +++++++++++++++++++++++
+# assigns color to use with ggplot
+# 
+assignColor <- function(myTaxas) {
 }
 
 
-
 # +++++++++++++++++++++++
-# myStackedBarPlot
+# plotStackedBar
 # +++++++++++++++++++++++
 # This function generates a stacked bar plot
 # of community composition
-myStackedBarPlot <- function(countData, taxaData, sampleData, 
+plotStackedBar <- function(countData, taxaData, sampleData, 
                              taxaLevel, taxa2Plot, numTaxa2Plot = NULL, 
                              sortMethod, facetField = "None"){
   
@@ -216,18 +210,29 @@ myStackedBarPlot <- function(countData, taxaData, sampleData,
   # get sampleOrder
   if (sortMethod == "Cluster by Dissimilarity"){
     sorder <- sortSamplesByDissimilarity(propData)
+  } else {
+    sorder <- sortSamplesByDescTaxaAbund(propData)    
   }
+  
+  
   # set sample levels
   plotDF$Sample <- factor(plotDF$Sample, levels = sorder)
   
   # plot
-  p <- ggplot(plotDF, aes(Sample, RelAb, fill=Taxa2)) + 
+  p <- ggplot(plotDF, aes(Sample, RelAb, fill=Taxa2, group=RelAb)) + 
         geom_bar(stat="identity", position="stack") + 
-        theme_bw()
+        labs(x="Samples", "Relative Abundance") +
+        theme_bw() + 
+        theme(axis.title = element_text(size=10, face="bold"),
+              axis.text.x = element_blank(),
+              strip.text = element_text(size=10, face="bold"),
+              legend.position = "bottom") +
+        guides(fill=guide_legend(ncol = 3, title = taxaLevel, 
+                                 title.position = "top",override.aes = list(size=5)))
   
   # add facet
   if (!(facetField == "None")) {
-    p <- p + facet_wrap(~eval(parse(text=facetField)), scales = "free_x")
+    p <- p + facet_grid(~eval(parse(text=facetField)), scales = "free_x", space = "free_x")
   }
   
   ggplotly(p)
