@@ -16,6 +16,8 @@ library(biomformat)
 library(magrittr)
 library(reshape2)
 library(vegan)
+library(ggsci)
+library(ggdendro)
 
 # import utility functions
 source("./utils.R")
@@ -51,7 +53,7 @@ ui <- fluidPage(
         )
       )
     ),
-    tabPanel("Filter Data",
+    tabPanel("Filter",
       sidebarLayout(
         sidebarPanel(
           uiOutput("filterUI")
@@ -62,13 +64,16 @@ ui <- fluidPage(
         )
       )       
     ),
-    tabPanel("Stacked Bars",
+    tabPanel("Visualize",
       sidebarLayout(
         sidebarPanel(
-          uiOutput("sbUI")
+          uiOutput("visualizeUI")
         ),
         mainPanel(
-          plotlyOutput("stackedbar")
+          tabsetPanel(type="tabs",
+                      tabPanel("Stacked Bars", plotlyOutput("stackedbar")),
+                      tabPanel("Heatmap", plotlyOutput("heatmap"))
+          )
         )
       )
     )
@@ -147,8 +152,8 @@ server <- function(input, output) {
   ###################
   # Stacked Bar Plots
   ###################
-  # render stacked bar UI
-  output$sbUI <- renderUI({
+  # render visualize UI
+  output$visualizeUI <- renderUI({
     req(!is.null(filteredData()$countData))
     list(
       radioButtons("plotDataset", label=h4("Dataset"),
@@ -173,6 +178,7 @@ server <- function(input, output) {
   
   # render stacked bar plot
   output$stackedbar <- renderPlotly({
+    req(!is.null(input$taxaLevel))
     if (input$plotDataset == "Filtered") {
       plotStackedBar(filteredData()$countData, filteredData()$taxaData, filteredData()$sampleData,
                        input$taxaLevel, input$taxa2Plot, input$numTaxa2Plot, 
@@ -183,6 +189,21 @@ server <- function(input, output) {
                        input$sortMethod, input$facetField)  
     }
   })
+  
+  # render heatmap
+  output$heatmap <- renderPlotly({
+    req(!is.null(input$taxaLevel))
+    if (input$plotDataset == "Filtered") {
+      plotHeatMap(filteredData()$countData, filteredData()$taxaData, filteredData()$sampleData,
+                     input$taxaLevel, input$taxa2Plot, input$numTaxa2Plot, 
+                     input$sortMethod, input$facetField)
+    } else {
+      plotHeatMap(validData()$countData, validData()$taxaData, validData()$sampleData,
+                     input$taxaLevel, input$taxa2Plot, input$numTaxa2Plot, 
+                     input$sortMethod, input$facetField)  
+    }
+  })
+  
   
   
 }

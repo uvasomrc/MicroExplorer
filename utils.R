@@ -163,7 +163,6 @@ sortSamplesByDescTaxaAbund <- function(propData) {
   
   ### return the custom sample order
   return(sorder$Sample)
-
 }
 
 # +++++++++++++++++++++++
@@ -214,14 +213,15 @@ plotStackedBar <- function(countData, taxaData, sampleData,
     sorder <- sortSamplesByDescTaxaAbund(propData)    
   }
   
-  
   # set sample levels
   plotDF$Sample <- factor(plotDF$Sample, levels = sorder)
   
   # plot
+  ntaxa <- length(unique(plotDF$Taxa2))
   p <- ggplot(plotDF, aes(Sample, RelAb, fill=Taxa2, group=RelAb)) + 
         geom_bar(stat="identity", position="stack") + 
         labs(x="Samples", "Relative Abundance") +
+        scale_fill_manual(values = colorRampPalette(pal_ucscgb()(7))(ntaxa)) +
         theme_bw() + 
         theme(axis.title = element_text(size=10, face="bold"),
               axis.text.x = element_blank(),
@@ -238,6 +238,54 @@ plotStackedBar <- function(countData, taxaData, sampleData,
   ggplotly(p)
 }
 
+
+# +++++++++++++++++++++++
+# plotHeatMap
+# +++++++++++++++++++++++
+plotHeatMap <- function(countData, taxaData, sampleData, 
+                        taxaLevel, taxa2Plot, numTaxa2Plot = NULL, 
+                        sortMethod, facetField = "None"){
+
+  cdf <- countData %>%
+    rownames_to_column(var="otu")
+  
+  tdf <- taxaData %>%
+    rownames_to_column(var="otu") %>%
+    dplyr::select(otu, taxaLevel)
+
+  propData <- cdf %>%
+    column_to_rownames(var="otu") %>%
+    as.matrix() %>%
+    prop.table(.,2) %>%
+    as.data.frame() %>%
+    rownames_to_column(var="otu")
+  
+  # tax table for heatmap rows  
+  tdf2 <- left_join(tdf, propData, by="otu") %>%
+    dplyr::select(-otu) %>%
+    set_colnames(c("Taxa", colnames(.)[2:ncol(.)])) %>%
+    dplyr::group_by(Taxa) %>%
+    summarise_all(funs(sum)) %>%
+    melt(.) %>%
+    set_colnames(c("Taxa", "Sample", "Prop"))
+  
+  # plot 
+  p <- ggplot(tdf2, aes(Sample, Taxa)) + 
+    geom_tile(aes(fill=Prop), color="black") + 
+    scale_fill_gradient(low="white", high = "firebrick") + 
+    ylab(taxaLevel) + 
+    xlab("Samples") + 
+    theme(legend.title = element_text(size = 10),
+          legend.text = element_text(size = 12),
+          plot.title = element_text(size=16),
+          axis.title=element_text(size=14,face="bold"),
+          axis.text.x = element_blank()) +
+    labs(fill = "Prop")
+  
+  heatmap <- ggplotly(p)
+
+  return(heatmap)
+}
 
 # +++++++++++++++++++++++
 # plotSeqDepth
