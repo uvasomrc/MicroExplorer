@@ -60,7 +60,7 @@ validateInputs <- function(countData, taxaData, sampleData) {
     msg <- "Valid Input files! Please proceed to filtering step."
   } else if (snameCheck == FALSE) {
     msg <- "ERROR: Sample names do not match in count data and sample data. Please re-upload your data."
-  } else if (outCheck == FALSE) {
+  } else if (otuCheck == FALSE) {
     msg <- "ERROR: OTU IDs do not match in count data and taxa data. Please re-upload your data"
   } else {
     msg <- "ERROR: Unable to validate input files. Please re-upload your data."
